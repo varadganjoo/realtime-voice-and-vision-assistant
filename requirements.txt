@@ -1,0 +1,15 @@
+opencv-python-headless
+opencv-python
+python-dotenv
+sounddevice
+numpy
+webrtcvad
+groq
+noisereduce
+duckduckgo-search
+RestrictedPython
+mss
+Pillow
+geocoder
+pydub
+edge-tts
