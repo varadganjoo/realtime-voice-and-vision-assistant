@@ -190,7 +190,7 @@ def generate_code(prompt, error_message=None):
 
 def modify_for_selenium_profile(code):
     """Modify the generated Selenium code to include the Chrome profile setup."""
-    profile_path = "C:/Users/Varad/AppData/Local/Google/Chrome/User Data"
+    profile_path = "C:/Users/.../AppData/Local/Google/Chrome/User Data"
     
     # Insert the Selenium profile configuration if not already present
     profile_setup_code = f"""
@@ -573,7 +573,7 @@ def capture_and_analyze_image():
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": "Here is an image from a live webcam feed of Varad. What's in this image? Only describe what is in focus in the image. The background details are not necessary."},
+                        {"type": "text", "text": "Here is an image from a live webcam feed of the user. What's in this image? Only describe what is in focus in the image. The background details are not necessary."},
                         {
                             "type": "image_url",
                             "image_url": {
@@ -985,7 +985,7 @@ def route_query(query):
     else:
         weather_description = "Current weather data is unavailable."
 
-    system_prompt = f"""Your name is Jenny. You are a smart female assistant. Your user's name is Varad, your builder and your only user. He is a male. Today is {current_datetime}. You are a routing assistant. Use the chat history and the user's query to determine if tools are needed and extract the proper inputs for each tool.
+    system_prompt = f"""Your name is Jenny. Today is {current_datetime}. You are a routing assistant. Use the chat history and the user's query to determine if tools are needed and extract the proper inputs for each tool.
 
 Chat History:
 {sanitized_chat_history}
@@ -1083,7 +1083,7 @@ def generate_user_friendly_response_multi_tool(user_query, tool_results):
 
         logging.info(f"Tool Results: {tool_results_text}")
         # Include tool results and recent queries in the system prompt for context
-        system_prompt = f"""Your name is Jenny. You are a smart female assistant. You have used tools to get information to solve the user's query. The user has asked the following question:
+        system_prompt = f"""Your name is Jenny. You have used tools to get information to solve the user's query. The user has asked the following question:
 
 User query: {user_query}
 
@@ -1172,7 +1172,7 @@ def run_general(query):
             weather_description = "Current weather data is unavailable."
 
         # Prepare the system prompt including the chat history
-        system_prompt = f"""Your name is Jenny. You are a smart female assistant. Your user's name is Varad, your builder and your only user. He is a male. Today is {current_datetime}. The user's location is: {city}, {state}, {country}, {latlng}. {weather_description} You are a helpful assistant.
+        system_prompt = f"""Your name is Jenny. Today is {current_datetime}. The user's location is: {city}, {state}, {country}, {latlng}. {weather_description} You are a helpful assistant.
 
 Chat History:
 {sanitized_chat_history}
