@@ -28,6 +28,11 @@ Install these dependencies by running:
 pip install -r requirements.txt
 ```
 
+Update line 193 in case selenium is being used
+```python
+profile_path = "C:/Users/.../AppData/Local/Google/Chrome/User Data"
+```
+
 ## Environment Variables
 Create a `.env` file in the project root to store API keys and other sensitive information:
 ```python
@@ -35,13 +40,11 @@ GROQ_API_KEY=your_groq_api_key
 OPENWEATHER_API_KEY=your_openweather_api_key
 ```
 
-
 ## Usage
 Run the assistant by executing `voice.py`:
 ```python
 python voice.py
 ```
-
 
 ### GUI
 A simple GUI is provided to control the microphone mute/unmute state. This will start automatically when running the script.
