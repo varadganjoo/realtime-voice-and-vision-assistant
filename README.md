@@ -31,7 +31,8 @@ pip install -r requirements.txt
 ## Environment Variables
 Create a `.env` file in the project root to store API keys and other sensitive information:
 ```python
-GROQ_API_KEY=your_groq_api_key OPENWEATHER_API_KEY=your_openweather_api_key
+GROQ_API_KEY=your_groq_api_key
+OPENWEATHER_API_KEY=your_openweather_api_key
 ```
 
 
