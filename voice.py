@@ -3,7 +3,6 @@ from datetime import datetime
 import cv2
 from dotenv import load_dotenv
 import tkinter as tk
-from tkinter import messagebox
 import sounddevice as sd
 import numpy as np
 import webrtcvad
@@ -23,10 +22,7 @@ import logging
 import ast
 import operator
 import re
-import traceback
-from io import StringIO
-from RestrictedPython import compile_restricted
-from RestrictedPython.Guards import safe_builtins, guarded_iter_unpack_sequence, guarded_unpack_sequence
+import safety
 import base64
 import subprocess
 import tempfile
@@ -45,7 +41,6 @@ from comtypes import CLSCTX_ALL
 
 # New imports for weather functionalities
 import requests  # For making API calls to OpenWeather
-from dotenv import load_dotenv  # For loading environment variables
 
 load_dotenv()
 
@@ -57,6 +52,12 @@ groq_api_key = os.getenv("GROQ_API_KEY")
 if not groq_api_key:
     raise ValueError("GROQ_API_KEY environment variable not set.")
 client = Groq(api_key=groq_api_key)
+
+# Model IDs. Groq retires preview models regularly, so these can be overridden in .env.
+TEXT_MODEL = os.getenv("GROQ_TEXT_MODEL", "llama-3.3-70b-versatile")
+FAST_MODEL = os.getenv("GROQ_FAST_MODEL", "llama-3.1-8b-instant")
+VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
+TRANSCRIPTION_MODEL = os.getenv("GROQ_TRANSCRIPTION_MODEL", "whisper-large-v3")
 
 # OpenWeather API Key
 openweather_api_key = os.getenv("OPENWEATHER_API_KEY")
@@ -156,7 +157,7 @@ def generate_code(prompt, error_message=None):
 
         # Set up the LLaMA model interaction for code generation
         response = client.chat.completions.create(
-            model="llama-3.2-90b-text-preview",  # Model for code generation
+            model=TEXT_MODEL,  # Model for code generation
             messages=[
                 {"role": "system", "content": f"You are a code generation assistant on a windows PC. Generate only Python code based on the user's request. Do not include any explanations, comments, or additional text. The system being used is Windows. Do not enclose the code in any formatting or code blocks. The user's location is: {city}, {state}, {country}, {latlng}. Do not use Tesseract, use easyocr instead if needed."},
                 {"role": "user", "content": prompt},
@@ -217,54 +218,8 @@ def setup_selenium_with_profile():
     return final_code
     
 def execute_code(code):
-    """Execute the generated Python code safely using a temporary file and capture output."""
-    try:
-        # Create a temporary Python file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as temp_file:
-            temp_file_name = temp_file.name
-            temp_file.write(code)
-
-        # Execute the temporary file
-        try:
-            # Run the temporary Python file as a subprocess
-            result = subprocess.run(
-                [sys.executable, temp_file_name],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=60  # Set a timeout for execution
-            )
-
-            # Capture stdout and stderr
-            output = result.stdout.strip()
-            errors = result.stderr.strip()
-
-            # Combine output and errors
-            if output and errors:
-                execution_result = f"Output:\n{output}\n\nErrors:\n{errors}"
-            elif output:
-                execution_result = output
-            elif errors:
-                execution_result = errors
-            else:
-                execution_result = "Execution completed with no output."
-
-            if result.returncode != 0:
-                logging.error(f"Execution failed with return code {result.returncode}")
-
-        except subprocess.TimeoutExpired:
-            execution_result = "Error: Code execution timed out."
-        except Exception as e:
-            execution_result = f"Error during execution: {e}"
-        finally:
-            # Delete the temporary file
-            os.unlink(temp_file_name)
-
-        return execution_result
-
-    except Exception as e:
-        logging.error(f"Error during code execution: {e}")
-        return f"Error during code execution: {e}"
+    """Run generated code in a separate process (see safety.execute_code)."""
+    return safety.execute_code(code)
 
 # Define Code Generation and Execution Tool
 def extract_code_from_response(response_text):
@@ -434,7 +389,7 @@ def screenshot_tool(screen_number=1):
                         ],
                     }
                 ],
-                model="llama-3.2-90b-vision-preview",
+                model=VISION_MODEL,
             )
 
             # Get the assistant's response using dot notation
@@ -458,10 +413,11 @@ def toggle_wifi(state):
     :param state: Either 'on' or 'off'
     :return: A confirmation message.
     """
-    if state.lower() == 'on':
+    state = str(state).strip().lower()
+    if state == 'on':
         subprocess.run('netsh interface set interface "Wi-Fi" enabled', shell=True)
         return "Wi-Fi turned on."
-    elif state.lower() == 'off':
+    elif state == 'off':
         subprocess.run('netsh interface set interface "Wi-Fi" disabled', shell=True)
         return "Wi-Fi turned off."
     else:
@@ -474,6 +430,9 @@ def toggle_bluetooth(state):
     :param state: Either 'on' or 'off'
     :return: A confirmation message.
     """
+    state = str(state).strip().lower()
+    if state not in ("on", "off"):
+        return "Invalid state. Use 'on' or 'off'."
     script = f'''
     $btAdapter = Get-PnpDevice -Class Bluetooth -FriendlyName "*"
     if ("{state}" -eq "on") {{
@@ -568,7 +527,7 @@ def capture_and_analyze_image():
 
         # Use Groq Vision model to analyze the image
         response = client.chat.completions.create(
-            model="llama-3.2-90b-vision-preview",  # Or use llama-3.2-11b-vision-preview
+            model=VISION_MODEL,
             messages=[
                 {
                     "role": "user",
@@ -786,6 +745,8 @@ def create_gui():
     mute_button.pack(pady=20)
 
     root.geometry("300x150")
+    # Power, radio and code-execution tools ask for approval in this window first.
+    safety.register_confirmer(safety.make_tk_confirmer(root))
     root.mainloop()
 
 # Chat History Management
@@ -957,7 +918,7 @@ def process_audio(audio_data):
 
         transcription = client.audio.transcriptions.create(
             file=file,
-            model="whisper-large-v3",
+            model=TRANSCRIPTION_MODEL,
             response_format="text"
         )
         logging.info(f"Transcription: {transcription.strip()}")
@@ -1020,7 +981,7 @@ Response:"""
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",  # You may use another model if needed
+            model=FAST_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": query}
@@ -1103,7 +1064,7 @@ Do not provide a response with code unless the user specifically asks you to sho
 
         # Send the system prompt and user query to the LLM
         response = client.chat.completions.create(
-            model="llama-3.2-11b-text-preview",  # Use the appropriate LLM model
+            model=TEXT_MODEL,
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_query}],
             max_tokens=500,  # Adjusted max tokens
             temperature=0.5,  # Slightly increase temperature for more creativity
@@ -1134,8 +1095,7 @@ def run_with_tool(query):
             tool_result = None
             if tool_name in available_functions:
                 try:
-                    function_to_call = available_functions[tool_name]
-                    tool_result = function_to_call(validated_input) if validated_input else function_to_call()
+                    tool_result = safety.call_tool(tool_name, validated_input, available_functions)
                     write_to_chat_history("tool", tool_result, tool_name=tool_name, tool_args={"input": validated_input}, tool_output=tool_result)
                 except Exception as e:
                     logging.error(f"Error during {tool_name}: {e}")
@@ -1187,7 +1147,7 @@ Chat History:
 
         # Make the request to the general-purpose model with the prepared messages
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",  # General-purpose model
+            model=FAST_MODEL,  # General-purpose model
             messages=messages,
             max_tokens=1024,
             stream=False
@@ -1232,8 +1192,7 @@ def process_query(query):
             if tool_name in available_functions:
                 try:
                     # Execute the tool function, passing the validated input if required
-                    function_to_call = available_functions[tool_name]
-                    tool_result = function_to_call(validated_input) if validated_input else function_to_call()
+                    tool_result = safety.call_tool(tool_name, validated_input, available_functions)
                     logging.info(f"{tool_name} result: {tool_result}")
 
                     # Log tool execution to chat history

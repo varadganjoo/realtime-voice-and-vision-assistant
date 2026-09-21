@@ -13,3 +13,9 @@ Pillow
 geocoder
 pydub
 edge-tts
+screen-brightness-control
+pycaw
+comtypes
+requests
+selenium
+webdriver-manager
